@@ -358,6 +358,39 @@ class UrlGenerator implements UrlGeneratorContract
      */
     public function signedRoute($name, $parameters = [], $expiration = null, $absolute = true)
     {
+        return $this->createSignedUrl([$this, 'route'], $name, $parameters, $expiration, $absolute);
+    }
+
+    /**
+     * Create a signed route URL for a controller action.
+     *
+     * @param  string|array  $action
+     * @param  mixed  $parameters
+     * @param  \DateTimeInterface|\DateInterval|int|null  $expiration
+     * @param  bool  $absolute
+     * @return string
+     *
+     * @throws \InvalidArgumentException
+     */
+    public function signedAction($action, $parameters = [], $expiration = null, $absolute = true)
+    {
+        return $this->createSignedUrl([$this, 'action'], $action, $parameters, $expiration, $absolute);
+    }
+
+    /**
+     * Create a signed URL.
+     *
+     * @param  callable  $resolver
+     * @param  \BackedEnum|string|array  $target
+     * @param  mixed  $parameters
+     * @param  \DateTimeInterface|\DateInterval|int|null  $expiration
+     * @param  bool  $absolute
+     * @return string
+     *
+     * @throws \InvalidArgumentException
+     */
+    protected function createSignedUrl(callable $resolver, $target, $parameters, $expiration, $absolute)
+    {
         $this->ensureSignedRouteParametersAreNotReserved(
             $parameters = Arr::wrap($parameters)
         );
@@ -369,13 +402,10 @@ class UrlGenerator implements UrlGeneratorContract
         ksort($parameters);
 
         $key = call_user_func($this->keyResolver);
+        $url = $resolver($target, $parameters, $absolute);
 
-        return $this->route($name, $parameters + [
-            'signature' => hash_hmac(
-                'sha256',
-                $this->route($name, $parameters, $absolute),
-                is_array($key) ? $key[0] : $key
-            ),
+        return $resolver($target, $parameters + [
+            'signature' => hash_hmac('sha256', $url, is_array($key) ? $key[0] : $key),
         ], $absolute);
     }
 
@@ -412,6 +442,20 @@ class UrlGenerator implements UrlGeneratorContract
     public function temporarySignedRoute($name, $expiration, $parameters = [], $absolute = true)
     {
         return $this->signedRoute($name, $parameters, $expiration, $absolute);
+    }
+
+    /**
+     * Create a temporary signed route URL for a controller action.
+     *
+     * @param  string|array  $action
+     * @param  \DateTimeInterface|\DateInterval|int  $expiration
+     * @param  array  $parameters
+     * @param  bool  $absolute
+     * @return string
+     */
+    public function temporarySignedAction($action, $expiration, $parameters = [], $absolute = true)
+    {
+        return $this->signedAction($action, $parameters, $expiration, $absolute);
     }
 
     /**
